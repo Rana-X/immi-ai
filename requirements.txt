@@ -1,0 +1,19 @@
+# API Dependencies
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Production Dependencies
+prometheus-fastapi-instrumentator>=6.1.0
+python-json-logger>=2.0.7
+
+# Core Dependencies
+streamlit>=1.31.0
+openai>=1.12.0
+pinecone-client==3.0.0
+python-dotenv==1.0.0
+PyPDF2==3.0.1
+scikit-learn>=1.0.2
+numpy>=1.21.0
+fuzzywuzzy==0.18.0
+rapidfuzz>=3.6.1 
