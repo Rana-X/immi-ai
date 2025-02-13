@@ -122,210 +122,228 @@ def main():
     st.set_page_config(
         page_title="Immi.AI - Immigration Assistant",
         page_icon="🌎",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="collapsed"
     )
 
-    # Custom CSS for dark theme and modern UI
+    # Custom CSS
     st.markdown("""
         <style>
-        /* Main container */
+        /* Global styles */
         .stApp {
-            background-color: #0A0A0F;
-            color: white;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
+            background-color: #000000;
         }
         
-        /* Header */
-        .main-header {
-            text-align: center;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-        }
-        
-        .main-header h1 {
-            font-size: 3.5rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            background: linear-gradient(120deg, #4CAF50, #2196F3);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .main-header p {
-            font-size: 1.2rem;
-            color: #B0BEC5;
-        }
-        
-        /* Chat input */
-        .stTextInput > div > div > input {
-            background-color: #1E1E1E;
-            color: white;
-            border: 1px solid #333;
-            border-radius: 10px;
-            padding: 1rem;
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-        }
-        
-        /* Send button */
-        .stButton > button {
-            background: linear-gradient(90deg, #4CAF50, #2196F3);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 0.8rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .stButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-        }
-        
-        /* Chat messages */
-        .chat-message {
-            padding: 1rem 1.5rem;
-            border-radius: 15px;
-            margin: 1rem 0;
-            animation: fadeIn 0.5s ease;
-        }
-        
-        .user-message {
-            background-color: #2C3E50;
-            margin-left: 20%;
-            border-top-right-radius: 5px;
-        }
-        
-        .assistant-message {
-            background-color: #1E1E1E;
-            margin-right: 20%;
-            border-top-left-radius: 5px;
-        }
-        
-        /* Disclaimer */
-        .disclaimer {
-            background-color: #1E1E1E;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-top: 2rem;
-            border: 1px solid #333;
-        }
-        
-        /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Hide Streamlit branding */
+        /* Hide Streamlit elements */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Logo */
+        .logo-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #8B5CF6, #6366F1);
+            border-radius: 12px;
+        }
+        
+        .logo-text {
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        /* Main content */
+        .main-container {
+            max-width: 800px;
+            margin: 120px auto 0;
+            padding: 0 20px;
+        }
+        
+        .main-heading {
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .brand-name {
+            color: #8B5CF6;
+        }
+        
+        /* Input field */
+        .stTextInput > div > div > input {
+            background-color: #1A1A1A;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            margin-bottom: 1rem;
+        }
+        
+        .stTextInput > div > div > input::placeholder {
+            color: #666;
+        }
+        
+        /* Disclaimer modal */
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            z-index: 1000;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #1A1A1A;
+        }
+        
+        .modal-text {
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 8px 24px;
+            border-radius: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary {
+            background: #E5E7EB;
+            color: #1A1A1A;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # Header
+    # Logo
     st.markdown("""
-        <div class="main-header">
-            <h1>Welcome to Immi.AI 👋</h1>
-            <p>Your intelligent assistant for US immigration and visa inquiries.</p>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text">Immi.AI</div>
         </div>
     """, unsafe_allow_html=True)
 
-    # Create two columns for better layout
-    col1, col2 = st.columns([2, 1])
+    # Main content
+    st.markdown("""
+        <div class="main-container">
+            <h1 class="main-heading">What can <span class="brand-name">Immi.AI</span> help you with?</h1>
+        </div>
+    """, unsafe_allow_html=True)
 
-    with col1:
-        # Chat interface
+    # Initialize session state
+    if 'disclaimer_accepted' not in st.session_state:
+        st.session_state.disclaimer_accepted = False
+
+    # Show disclaimer modal if not accepted
+    if not st.session_state.disclaimer_accepted:
+        st.markdown("""
+            <div class="overlay"></div>
+            <div class="modal">
+                <h2 class="modal-title">Important Disclaimer</h2>
+                <p class="modal-text">
+                    Immi.AI is designed for educational purposes only. This tool does not provide legal advice, and we explicitly disclaim any assertion that it offers legal counsel.
+                </p>
+                <p class="modal-text">Please note:</p>
+                <ul class="modal-text">
+                    <li>We do not store or save any chat history</li>
+                    <li>Your data is not used for training or sold to third parties</li>
+                    <li>All information is cleared when you close or refresh the page</li>
+                </ul>
+                <p class="modal-text">Do you understand and agree to these terms?</p>
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="window.location.href='/'">No</button>
+                    <button class="btn btn-primary" onclick="handleAccept()">Yes, I Understand</button>
+                </div>
+            </div>
+            <script>
+                function handleAccept() {
+                    const element = window.parent.document.querySelector('iframe').contentWindow.document.querySelector('[data-testid="stFormSubmitButton"]');
+                    if (element) {
+                        element.click();
+                    }
+                }
+            </script>
+        """, unsafe_allow_html=True)
+
+        # Hidden form to handle disclaimer acceptance
+        with st.form(key='disclaimer_form', clear_on_submit=True):
+            submit = st.form_submit_button('Accept', type='primary')
+            if submit:
+                st.session_state.disclaimer_accepted = True
+                st.experimental_rerun()
+
+    # Chat interface (only show if disclaimer accepted)
+    if st.session_state.disclaimer_accepted:
+        # Initialize chat history
         if 'messages' not in st.session_state:
             st.session_state.messages = []
 
-        # Display chat history
-        for message in st.session_state.messages:
-            message_class = "user-message" if message["role"] == "user" else "assistant-message"
-            st.markdown(
-                f'<div class="chat-message {message_class}">{message["content"]}</div>',
-                unsafe_allow_html=True
-            )
-
-        # Chat input
+        # Chat input with custom styling
         user_input = st.text_input(
             "",
-            placeholder="Type your immigration or visa related question here...",
-            key="user_input"
+            placeholder="Immigration question?",
+            key="user_input",
+            label_visibility="collapsed"
         )
 
-        # Send button
-        if st.button("Send", key="send_button"):
-            if user_input:
-                # Add user message
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": user_input
-                })
-
-                # Simulate assistant response
-                response = {
-                    "response": {
-                        "greeting": "Hi! 👋",
-                        "overview": "I'm here to help with your immigration questions.",
-                        "key_points": [
-                            "I can provide information about various visa types",
-                            "I can explain immigration processes",
-                            "I can help clarify documentation requirements"
-                        ],
-                        "follow_up": [
-                            "What specific visa type are you interested in?",
-                            "Would you like to know about application timelines?",
-                            "Do you have questions about eligibility criteria?"
-                        ]
-                    }
-                }
-
-                # Format response
-                assistant_response = response["response"]
-                formatted_response = []
-                
-                if assistant_response.get("greeting"):
-                    formatted_response.append(assistant_response["greeting"])
-                
-                if assistant_response.get("overview"):
-                    formatted_response.append(assistant_response["overview"])
-                
-                if assistant_response.get("key_points"):
-                    formatted_response.append("\nKey Points:")
-                    formatted_response.extend([f"• {point}" for point in assistant_response["key_points"]])
-                
-                if assistant_response.get("follow_up"):
-                    formatted_response.append("\nFollow-up Questions:")
-                    formatted_response.extend([f"• {q}" for q in assistant_response["follow_up"]])
-
-                # Add assistant response
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": "\n".join(formatted_response)
-                })
-
-                # Clear input and rerun
-                st.experimental_rerun()
-
-    with col2:
-        # Disclaimer in a card-like container
-        st.markdown("""
-            <div class="disclaimer">
-                <h3>ℹ️ Disclaimer</h3>
-                <ul style="list-style-type: none; padding-left: 0;">
-                    <li>• This is an informational tool only</li>
-                    <li>• Does not provide legal advice</li>
-                    <li>• Please consult immigration attorneys for legal counsel</li>
-                    <li>• We do not store or save any chat history</li>
-                    <li>• Your data is not used for training or shared with third parties</li>
-                </ul>
-            </div>
-        """, unsafe_allow_html=True)
+        if user_input:
+            # Add user message and get response
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            # Process response (placeholder for now)
+            response = "This is a placeholder response. The actual AI response will be integrated here."
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.experimental_rerun()
 
 if __name__ == "__main__":
     main() 
