@@ -1,4 +1,12 @@
 import streamlit as st
+
+# Set page config (must be the first Streamlit command)
+st.set_page_config(
+    page_title="Immi.AI - Immigration Assistant",
+    page_icon="🌎",
+    layout="wide"
+)
+
 import openai
 import pinecone
 import logging
@@ -326,13 +334,6 @@ def show_disclaimer_modal():
     """, unsafe_allow_html=True)
 
 def main():
-    # Set page config
-    st.set_page_config(
-        page_title="Immi.AI - Immigration Assistant",
-        page_icon="🌎",
-        layout="wide"
-    )
-    
     # Show disclaimer if not accepted
     if not st.session_state.accepted_disclaimer:
         show_disclaimer_modal()
