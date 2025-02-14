@@ -1,55 +1,170 @@
 import streamlit as st
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-from contextlib import asynccontextmanager
-from typing import Dict, Any
+import openai
+import pinecone
 import logging
-from src.rag.retriever import VectorRetriever
-from src.rag.generator import AnswerGenerator
-from src.utils.logger import setup_logger
-from src.utils.question_clarifier import QuestionClarifier
-from prometheus_fastapi_instrumentator import Instrumentator
-import httpx
+from typing import Dict, Any, List
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
-logger = setup_logger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Initialize FastAPI with lifespan
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Starting up...")
-    yield
-    # Shutdown
-    logger.info("Shutting down...")
+# Initialize OpenAI and Pinecone
+openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+pc = pinecone.Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index("visaindex")
 
-app = FastAPI(title="Immi.AI - Immigration Assistant", lifespan=lifespan)
+def get_embeddings(text: str) -> List[float]:
+    """Get embeddings for text using OpenAI"""
+    response = openai_client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text
+    )
+    return response.data[0].embedding
 
-# CORS configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def get_relevant_chunks(query: str, top_k: int = 4) -> List[Dict]:
+    """Get relevant chunks using Pinecone"""
+    try:
+        # Get query embedding
+        query_embedding = get_embeddings(query)
+        
+        # Query Pinecone
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k,
+            include_metadata=True
+        )
+        
+        # Format results
+        chunks = []
+        for match in results['matches']:
+            if match.score > 0.7:  # Similarity threshold
+                chunks.append({
+                    'text': match.metadata.get('text', ''),
+                    'source': match.metadata.get('source', 'Unknown'),
+                    'page': match.metadata.get('page', 0),
+                    'similarity': match.score
+                })
+        
+        return chunks
+    except Exception as e:
+        logger.error(f"Error retrieving chunks: {str(e)}")
+        return []
 
-# Initialize components
-retriever = VectorRetriever()
-generator = AnswerGenerator()
-clarifier = QuestionClarifier()
+def generate_answer(question: str, relevant_chunks: List[Dict]) -> Dict[str, Any]:
+    """Generate answer using OpenAI"""
+    try:
+        # Prepare context from chunks
+        context = "\n\n".join([
+            f"[{chunk['source']}: Page {chunk['page']}]\n{chunk['text']}"
+            for chunk in relevant_chunks
+        ])
+        
+        # Generate response
+        response = openai_client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": """You are Immi.ai, a confident and warmhearted AI assistant specializing in US immigration. 
+                Combine technical expertise with genuine care. Format your responses with:
+                1. A clear overview
+                2. 2-3 key points if relevant
+                3. 2-3 follow-up questions
+                
+                Context: {context}""".format(context=context)},
+                {"role": "user", "content": question}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        # Extract and structure the response
+        answer_text = response.choices[0].message.content
+        
+        # Parse response sections
+        sections = answer_text.split("\n\n")
+        overview = sections[0] if sections else ""
+        
+        key_points = []
+        follow_up = []
+        
+        for section in sections[1:]:
+            if "Key Points:" in section:
+                points = section.split("\n")[1:]
+                key_points = [p.strip("• ").strip() for p in points if p.strip()]
+            elif "Follow-up Questions:" in section:
+                questions = section.split("\n")[1:]
+                follow_up = [q.strip("• ").strip() for q in questions if q.strip()]
+        
+        return {
+            "response": {
+                "overview": overview,
+                "key_points": key_points[:3],
+                "follow_up": follow_up[:3]
+            },
+            "metadata": {
+                "sources": [{"document": c["source"], "page": c["page"]} for c in relevant_chunks],
+                "confidence_score": sum(c["similarity"] for c in relevant_chunks) / len(relevant_chunks) if relevant_chunks else 0
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating answer: {str(e)}")
+        return {
+            "response": {
+                "overview": "I apologize, but I encountered an error while processing your question.",
+                "key_points": [],
+                "follow_up": ["Would you like to try rephrasing your question?"]
+            },
+            "metadata": {
+                "error": str(e),
+                "confidence_score": 0
+            }
+        }
 
-@app.on_event("startup")
-async def startup():
-    """Initialize monitoring on startup"""
-    Instrumentator().instrument(app).expose(app)
-    logger.info("Application startup complete")
+def process_chat(question: str) -> Dict[str, Any]:
+    """Process chat messages and return response"""
+    try:
+        # Check if it's a greeting
+        greeting_words = {"hi", "hello", "hey", "greetings", "hi there", "hello there"}
+        if question.lower().strip() in greeting_words:
+            return {
+                "response": {
+                    "greeting": "Hi, I'm Immi! 👋",
+                    "overview": "I'm here to help with your US immigration and visa questions.",
+                    "key_points": [],
+                    "follow_up": [
+                        "What type of visa are you interested in?",
+                        "Would you like to learn about the immigration process?",
+                        "Do you have specific visa requirements questions?"
+                    ]
+                },
+                "metadata": {
+                    "confidence_score": 1.0
+                }
+            }
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+        # Get relevant chunks and generate answer
+        relevant_chunks = get_relevant_chunks(question)
+        answer = generate_answer(question, relevant_chunks)
+        return answer
+
+    except Exception as e:
+        logger.error(f"Error processing chat: {str(e)}")
+        return {
+            "response": {
+                "overview": "I apologize, but I encountered an error. Please try again.",
+                "key_points": [],
+                "follow_up": ["Would you like to try rephrasing your question?"]
+            },
+            "metadata": {
+                "error": str(e),
+                "confidence_score": 0
+            }
+        }
 
 # Initialize session state
 if "messages" not in st.session_state:
@@ -142,6 +257,29 @@ st.markdown("""
     .btn:hover {
         opacity: 0.9;
     }
+    
+    /* Chat interface styling */
+    .user-message {
+        background-color: #4776E6;
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        max-width: 80%;
+        float: right;
+        clear: both;
+    }
+    
+    .assistant-message {
+        background-color: #2D2D2D;
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        max-width: 80%;
+        float: left;
+        clear: both;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -186,47 +324,6 @@ def show_disclaimer_modal():
         });
     </script>
     """, unsafe_allow_html=True)
-
-def process_chat(question: str) -> Dict[str, Any]:
-    """Process chat messages and return response"""
-    try:
-        # Check if it's a greeting
-        greeting_words = {"hi", "hello", "hey", "greetings", "hi there", "hello there"}
-        if question.lower().strip() in greeting_words:
-            return {
-                "response": {
-                    "greeting": "Hi, I'm Immi! 👋",
-                    "overview": "I'm here to help with your US immigration and visa questions.",
-                    "key_points": [],
-                    "follow_up": [
-                        "What type of visa are you interested in?",
-                        "Would you like to learn about the immigration process?",
-                        "Do you have specific visa requirements questions?"
-                    ]
-                },
-                "metadata": {
-                    "confidence_score": 1.0
-                }
-            }
-
-        # Get relevant chunks and generate answer
-        relevant_chunks = retriever.get_relevant_chunks(question)
-        answer = generator.generate_answer(question, relevant_chunks)
-        return answer
-
-    except Exception as e:
-        logger.error(f"Error processing chat: {str(e)}")
-        return {
-            "response": {
-                "overview": "I apologize, but I encountered an error. Please try again.",
-                "key_points": [],
-                "follow_up": ["Would you like to try rephrasing your question?"]
-            },
-            "metadata": {
-                "error": str(e),
-                "confidence_score": 0
-            }
-        }
 
 def main():
     # Set page config
