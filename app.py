@@ -1,68 +1,191 @@
 import streamlit as st
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
-from contextlib import asynccontextmanager
 import uvicorn
-import logging
-import os
-from prometheus_fastapi_instrumentator import Instrumentator
-from datetime import datetime
+from contextlib import asynccontextmanager
 from typing import Dict, Any
+import logging
+from src.rag.retriever import VectorRetriever
+from src.rag.generator import AnswerGenerator
+from src.utils.logger import setup_logger
+from src.utils.question_clarifier import QuestionClarifier
+from prometheus_fastapi_instrumentator import Instrumentator
+import httpx
 
-# Configure logging with more detail
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = setup_logger(__name__)
 
-# Initialize Prometheus instrumentation
-instrumentator = Instrumentator()
-
+# Initialize FastAPI with lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup and shutdown events"""
     # Startup
-    startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    app.state.startup_time = startup_time
-    logger.info(f"===== Application Startup at {startup_time} =====")
+    logger.info("Starting up...")
     yield
     # Shutdown
-    logger.info("Application shutdown")
+    logger.info("Shutting down...")
 
-# Initialize FastAPI for backend endpoints
-app = FastAPI(
-    title="Immi.AI API",
-    description="""
-    Immi.AI is an intelligent assistant designed to help answer questions about US immigration and visa processes.
-    Using advanced RAG (Retrieval-Augmented Generation) technology, it provides accurate, up-to-date information
-    about various visa types, immigration procedures, and requirements.
-    """,
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-    lifespan=lifespan
-)
-
-# Set up Prometheus instrumentation
-instrumentator.instrument(app).expose(app)
+app = FastAPI(title="Immi.AI - Immigration Assistant", lifespan=lifespan)
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",     # Local development
-        "https://*.hf.space",        # Hugging Face Spaces
-        "https://*.huggingface.co",  # Hugging Face domains
-        "https://*.vercel.app",      # Vercel domains
-        "https://immi-ai.vercel.app" # Our production frontend
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize components
+retriever = VectorRetriever()
+generator = AnswerGenerator()
+clarifier = QuestionClarifier()
+
+@app.on_event("startup")
+async def startup():
+    """Initialize monitoring on startup"""
+    Instrumentator().instrument(app).expose(app)
+    logger.info("Application startup complete")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
+
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "accepted_disclaimer" not in st.session_state:
+    st.session_state.accepted_disclaimer = False
+
+# Custom CSS for styling
+st.markdown("""
+<style>
+    /* Hide Streamlit elements */
+    #MainMenu, header, footer {display: none;}
+    .stDeployButton {display: none;}
+    
+    /* Modal styling */
+    .modal-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .modal-content {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 800px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1A202C;
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-text {
+        font-size: 16px;
+        line-height: 1.6;
+        color: #4A5568;
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-list {
+        margin: 1.5rem 0;
+        padding-left: 1.5rem;
+    }
+    
+    .modal-list li {
+        color: #4A5568;
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+    }
+    
+    .button-container {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-no {
+        background-color: #EDF2F7;
+        color: #4A5568;
+        border: none;
+    }
+    
+    .btn-yes {
+        background-color: #48BB78;
+        color: white;
+        border: none;
+    }
+    
+    .btn:hover {
+        opacity: 0.9;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def show_disclaimer_modal():
+    st.markdown("""
+    <div class="modal-container">
+        <div class="modal-content">
+            <h2 class="modal-title">Important Disclaimer</h2>
+            <p class="modal-text">
+                Immi.AI is designed for educational purposes only. This tool does not provide legal advice, and we explicitly disclaim any assertion that it offers legal counsel.
+            </p>
+            <p class="modal-text">Please note:</p>
+            <ul class="modal-list">
+                <li>We do not store or save any chat history</li>
+                <li>Your data is not used for training or sold to third parties</li>
+                <li>All information is cleared when you close or refresh the page</li>
+            </ul>
+            <div class="button-container">
+                <button class="btn btn-no" onclick="handleNo()">No</button>
+                <button class="btn btn-yes" onclick="handleYes()">Yes, I Understand</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function handleNo() {
+            window.location.href = 'https://www.uscis.gov/';
+        }
+        
+        function handleYes() {
+            const element = document.querySelector('.modal-container');
+            element.style.display = 'none';
+            window.parent.postMessage({accepted: true}, '*');
+        }
+        
+        window.addEventListener('message', function(e) {
+            if (e.data.accepted) {
+                const streamlitDoc = window.parent.document;
+                const yesButton = streamlitDoc.querySelector('button[kind="primary"]');
+                if (yesButton) yesButton.click();
+            }
+        });
+    </script>
+    """, unsafe_allow_html=True)
 
 def process_chat(question: str) -> Dict[str, Any]:
     """Process chat messages and return response"""
@@ -85,31 +208,19 @@ def process_chat(question: str) -> Dict[str, Any]:
                     "confidence_score": 1.0
                 }
             }
-        
-        # For now, return a simple response
-        return {
-            "response": {
-                "greeting": "Hi, I'm Immi!",
-                "overview": "I'm currently being set up. Please check back soon for full functionality!",
-                "key_points": [],
-                "follow_up": [
-                    "Would you like to learn about different visa types?",
-                    "Do you have questions about the immigration process?"
-                ]
-            },
-            "metadata": {
-                "confidence_score": 1.0
-            }
-        }
-        
+
+        # Get relevant chunks and generate answer
+        relevant_chunks = retriever.get_relevant_chunks(question)
+        answer = generator.generate_answer(question, relevant_chunks)
+        return answer
+
     except Exception as e:
-        logger.error(f"Error in chat processing: {str(e)}")
+        logger.error(f"Error processing chat: {str(e)}")
         return {
             "response": {
-                "greeting": None,
-                "overview": "I apologize, but I encountered an error while processing your question.",
+                "overview": "I apologize, but I encountered an error. Please try again.",
                 "key_points": [],
-                "follow_up": ["Would you like to try again?"]
+                "follow_up": ["Would you like to try rephrasing your question?"]
             },
             "metadata": {
                 "error": str(e),
@@ -122,228 +233,59 @@ def main():
     st.set_page_config(
         page_title="Immi.AI - Immigration Assistant",
         page_icon="🌎",
-        layout="wide",
-        initial_sidebar_state="collapsed"
+        layout="wide"
     )
-
-    # Custom CSS
-    st.markdown("""
-        <style>
-        /* Global styles */
-        .stApp {
-            background-color: #000000;
-        }
-        
-        /* Hide Streamlit elements */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        
-        /* Logo */
-        .logo-container {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            z-index: 1000;
-        }
-        
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #8B5CF6, #6366F1);
-            border-radius: 12px;
-        }
-        
-        .logo-text {
-            color: white;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        
-        /* Main content */
-        .main-container {
-            max-width: 800px;
-            margin: 120px auto 0;
-            padding: 0 20px;
-        }
-        
-        .main-heading {
-            font-size: 48px;
-            font-weight: bold;
-            color: white;
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        
-        .brand-name {
-            color: #8B5CF6;
-        }
-        
-        /* Input field */
-        .stTextInput > div > div > input {
-            background-color: #1A1A1A;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 16px;
-            font-size: 16px;
-            margin-bottom: 1rem;
-        }
-        
-        .stTextInput > div > div > input::placeholder {
-            color: #666;
-        }
-        
-        /* Disclaimer modal */
-        .modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 32px;
-            border-radius: 16px;
-            max-width: 500px;
-            width: 90%;
-            z-index: 1000;
-        }
-        
-        .modal-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 16px;
-            color: #1A1A1A;
-        }
-        
-        .modal-text {
-            color: #666;
-            margin-bottom: 24px;
-            line-height: 1.5;
-        }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 16px;
-            justify-content: flex-end;
-        }
-        
-        .btn {
-            padding: 8px 24px;
-            border-radius: 24px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .btn-secondary {
-            background: #E5E7EB;
-            color: #1A1A1A;
-        }
-        
-        .btn-primary {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        
-        /* Overlay */
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Logo
-    st.markdown("""
-        <div class="logo-container">
-            <div class="logo-icon"></div>
-            <div class="logo-text">Immi.AI</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Main content
-    st.markdown("""
-        <div class="main-container">
-            <h1 class="main-heading">What can <span class="brand-name">Immi.AI</span> help you with?</h1>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Initialize session state
-    if 'disclaimer_accepted' not in st.session_state:
-        st.session_state.disclaimer_accepted = False
-
-    # Show disclaimer modal if not accepted
-    if not st.session_state.disclaimer_accepted:
-        st.markdown("""
-            <div class="overlay"></div>
-            <div class="modal">
-                <h2 class="modal-title">Important Disclaimer</h2>
-                <p class="modal-text">
-                    Immi.AI is designed for educational purposes only. This tool does not provide legal advice, and we explicitly disclaim any assertion that it offers legal counsel.
-                </p>
-                <p class="modal-text">Please note:</p>
-                <ul class="modal-text">
-                    <li>We do not store or save any chat history</li>
-                    <li>Your data is not used for training or sold to third parties</li>
-                    <li>All information is cleared when you close or refresh the page</li>
-                </ul>
-                <p class="modal-text">Do you understand and agree to these terms?</p>
-                <div class="modal-buttons">
-                    <button class="btn btn-secondary" onclick="window.location.href='/'">No</button>
-                    <button class="btn btn-primary" onclick="handleAccept()">Yes, I Understand</button>
-                </div>
-            </div>
-            <script>
-                function handleAccept() {
-                    const element = window.parent.document.querySelector('iframe').contentWindow.document.querySelector('[data-testid="stFormSubmitButton"]');
-                    if (element) {
-                        element.click();
-                    }
-                }
-            </script>
-        """, unsafe_allow_html=True)
-
-        # Hidden form to handle disclaimer acceptance
-        with st.form(key='disclaimer_form', clear_on_submit=True):
-            submit = st.form_submit_button('Accept', type='primary')
-            if submit:
-                st.session_state.disclaimer_accepted = True
+    
+    # Show disclaimer if not accepted
+    if not st.session_state.accepted_disclaimer:
+        show_disclaimer_modal()
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("No", key="no_button", type="secondary"):
+                st.markdown('<script>window.location.href = "https://www.uscis.gov/";</script>', unsafe_allow_html=True)
+        with col2:
+            if st.button("Yes, I Understand", key="yes_button", type="primary"):
+                st.session_state.accepted_disclaimer = True
                 st.experimental_rerun()
+        return
+    
+    # Chat interface (only shown after accepting disclaimer)
+    if st.session_state.accepted_disclaimer:
+        # Display chat messages
+        for message in st.session_state.messages:
+            if message["role"] == "user":
+                st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
 
-    # Chat interface (only show if disclaimer accepted)
-    if st.session_state.disclaimer_accepted:
-        # Initialize chat history
-        if 'messages' not in st.session_state:
-            st.session_state.messages = []
-
-        # Chat input with custom styling
-        user_input = st.text_input(
-            "",
-            placeholder="Immigration question?",
-            key="user_input",
-            label_visibility="collapsed"
-        )
-
-        if user_input:
-            # Add user message and get response
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            # Process response (placeholder for now)
-            response = "This is a placeholder response. The actual AI response will be integrated here."
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.experimental_rerun()
+        # Chat input
+        if prompt := st.chat_input("What can I help you with?"):
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Get bot response
+            response = process_chat(prompt)
+            
+            # Format and add assistant response
+            if "response" in response:
+                resp = response["response"]
+                message = ""
+                if resp.get("greeting"):
+                    message += f"{resp['greeting']}\n\n"
+                message += resp["overview"]
+                
+                if resp.get("key_points"):
+                    message += "\n\nKey Points:\n"
+                    message += "\n".join(f"• {point}" for point in resp["key_points"])
+                
+                if resp.get("follow_up"):
+                    message += "\n\nFollow-up Questions:\n"
+                    message += "\n".join(f"• {q}" for q in resp["follow_up"])
+                
+                st.session_state.messages.append({"role": "assistant", "content": message})
+            
+            # Rerun to update chat
+            st.rerun()
 
 if __name__ == "__main__":
     main() 

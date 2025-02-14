@@ -4,7 +4,8 @@ emoji: 🌎
 colorFrom: blue
 colorTo: purple
 sdk: streamlit
-app_port: 8501
+sdk_version: 1.31.0
+app_file: app.py
 pinned: false
 ---
 
@@ -20,13 +21,17 @@ Immi.AI is an intelligent assistant designed to help answer questions about US i
 - 🔒 Privacy-focused design
 - 🎯 Accurate, sourced responses
 
+## Important Note
+
+This is an informational tool only and does not provide legal advice. Please consult with immigration attorneys for legal counsel.
+
 ## Technical Stack
 
-- **Frontend**: Streamlit
-- **Backend**: Python with RAG architecture
-- **Vector Store**: Pinecone
-- **LLM**: OpenAI GPT-4
-- **Deployment**: Hugging Face Spaces
+- Frontend: Streamlit
+- Backend: Python with RAG architecture
+- Vector Store: Pinecone
+- LLM: OpenAI GPT-4
+- Deployment: Hugging Face Spaces
 
 ## Local Development
 
@@ -45,10 +50,6 @@ Immi.AI is an intelligent assistant designed to help answer questions about US i
    ```bash
    streamlit run app.py
    ```
-
-## Important Note
-
-This is an informational tool only and does not provide legal advice. Please consult with immigration attorneys for legal counsel.
 
 ## Feedback
 
