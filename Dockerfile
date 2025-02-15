@@ -15,9 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the backend code
 COPY backend/ ./
 
-# Make the startup script executable
-RUN chmod +x start.sh
-
 # Expose the port
 EXPOSE 8000
 
