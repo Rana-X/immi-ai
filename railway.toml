@@ -12,8 +12,8 @@ min_instances = 1
 
 [services.frontend]
 name = "immi-ai-frontend"
-buildCommand = "cd frontend && npm install && npm run build"
-startCommand = "cd frontend && npm start"
+buildCommand = "python -c \"import os; os.chdir('frontend'); os.system('npm install && npm run build')\""
+startCommand = "python -c \"import os; os.chdir('frontend'); os.system('npm start')\""
 healthcheckPath = "/"
 healthcheckTimeout = 45
 restartPolicyType = "ON_FAILURE"
