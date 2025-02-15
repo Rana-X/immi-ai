@@ -1,0 +1,12 @@
+{
+  "variables": {
+    "PINECONE_API_KEY": "pcsk_73bNrj_7YwqkwP76jvEyMy3aU7Z5eASbRA3Gd9CbLfzW96sewVYAUhZgWjq5K6U4prdk2n",
+    "PINECONE_ENVIRONMENT": "us-east-1",
+    "PINECONE_INDEX_NAME": "visaindex",
+    "PINECONE_HOST": "https://visaindex-291xg2i.svc.aped-4627-b74a.pinecone.io",
+    "OPENAI_API_KEY": "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",
+    "PORT": "8000",
+    "HOST": "0.0.0.0",
+    "ALLOWED_ORIGINS": "http://localhost:3000,http://localhost:3001,http://localhost:3002,https://*.railway.app"
+  }
+} 

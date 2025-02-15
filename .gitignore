@@ -1,31 +1,36 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Python Backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/.Python
+backend/build/
+backend/dist/
+backend/*.egg-info/
+backend/.installed.cfg
+backend/*.egg
 
 # Virtual Environment
-.env
-.venv
-env/
-venv/
-ENV/
+backend/.env
+backend/.venv
+backend/env/
+backend/venv/
+backend/ENV/
+
+# Frontend
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.DS_Store
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
 
 # IDE
 .idea/
@@ -33,18 +38,12 @@ ENV/
 *.swp
 *.swo
 
-# Node
-node_modules/
-.next/
-out/
-build/
+# OS
 .DS_Store
 
 # Project specific
-data/documents/*.pdf
+backend/data/documents/*.pdf
 *.pdf
-Immi.ai/
-immi-chat-ui/
 
 # Logs
 *.log
