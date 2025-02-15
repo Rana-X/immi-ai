@@ -1,24 +1,13 @@
 [build]
 builder = "nixpacks"
-
-[services.backend]
-name = "immi-ai-backend"
 python = "3.9"
+
+[deploy]
 startCommand = "python -c \"import os, sys; os.chdir('backend'); sys.path.insert(0, '/app/backend'); from main import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=int(os.getenv('PORT', '8000')))\""
 healthcheckPath = "/healthz"
 healthcheckTimeout = 45
 restartPolicyType = "ON_FAILURE"
 min_instances = 1
 
-[services.frontend]
-name = "immi-ai-frontend"
-buildCommand = "python -c \"import os; os.chdir('frontend'); os.system('npm install && npm run build')\""
-startCommand = "python -c \"import os; os.chdir('frontend'); os.system('npm start')\""
-healthcheckPath = "/"
-healthcheckTimeout = 45
-restartPolicyType = "ON_FAILURE"
-min_instances = 1
-
 [variables]
-PYTHONUNBUFFERED = "1"
-NODE_VERSION = "18.0.0" 
+PYTHONUNBUFFERED = "1" 
