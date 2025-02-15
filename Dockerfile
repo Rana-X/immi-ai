@@ -1,6 +1,9 @@
 FROM python:3.9-slim
 
-# Set working directory to backend directly
+# Install bash
+RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app/backend
 
 # Copy requirements first
@@ -12,8 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the backend code
 COPY backend/ .
 
+# Make the startup script executable
+RUN chmod +x start.sh
+
 # Expose the port
 EXPOSE 8000
 
-# Command to run the application (using shell form)
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT 
+# Use bash to run the startup script
+ENTRYPOINT ["/bin/bash"]
+CMD ["./start.sh"] 
