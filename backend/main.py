@@ -40,17 +40,10 @@ async def startup():
     logger.info("Application startup complete")
     logger.info(f"CORS origins configured: {app.middleware_stack.__dict__}")
 
-@app.get("/health")
+@app.get("/healthz")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "components": {
-            "retriever": "ok",
-            "generator": "ok",
-            "clarifier": "ok"
-        }
-    }
+    """Health check endpoint for Railway"""
+    return {"status": "ok"}
 
 @app.post("/chat")
 async def chat(request: Request):
