@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "OPENAI_API_KEY": "@openai-api-key",
+    "PINECONE_API_KEY": "@pinecone-api-key",
+    "PINECONE_ENVIRONMENT": "@pinecone-environment",
+    "PINECONE_INDEX_NAME": "@pinecone-index-name"
+  }
+} 
