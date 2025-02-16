@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  lint:
+    name: Lint Check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,13 +27,53 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Lint
+    - name: Run linter
       run: npm run lint
 
-    - name: Type check
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./immi-ai-app
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './immi-ai-app/package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run type check
       run: npx tsc --noEmit
 
-    - name: Build
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./immi-ai-app
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './immi-ai-app/package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build project
       run: npm run build
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -41,11 +82,14 @@ jobs:
         PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
 
   deploy:
-    needs: build-and-test
+    name: Deploy
+    needs: [lint, typecheck, build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
     steps:
+    - uses: actions/checkout@v3
+    
     - name: Deploy to Vercel
       run: |
         npm install --global vercel
