@@ -1,13 +1,27 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file
-env_path = BASE_DIR / '.env'  # Look for .env in the backend directory
-load_dotenv(dotenv_path=env_path)
+# Load environment variables from .env file if it exists
+env_path = BASE_DIR / '.env'
+if env_path.exists():
+    logger.info(f"Loading environment variables from {env_path}")
+    load_dotenv(dotenv_path=env_path)
+else:
+    logger.info("No .env file found, using environment variables directly")
+
+# Log environment variable status
+logger.info(f"PINECONE_API_KEY present: {bool(os.getenv('PINECONE_API_KEY'))}")
+logger.info(f"PINECONE_ENVIRONMENT: {os.getenv('PINECONE_ENVIRONMENT', 'not set')}")
+logger.info(f"PINECONE_INDEX_NAME: {os.getenv('PINECONE_INDEX_NAME', 'not set')}")
 
 # Pinecone Configuration
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
@@ -16,12 +30,19 @@ if not PINECONE_API_KEY:
 
 PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "visaindex")
-PINECONE_HOST = "https://visaindex-291xg2i.svc.aped-4627-b74a.pinecone.io"
+PINECONE_HOST = os.getenv("PINECONE_HOST", "https://visaindex-291xg2i.svc.aped-4627-b74a.pinecone.io")
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
+
+# Server Configuration
+PORT = int(os.getenv("PORT", "8000"))
+HOST = os.getenv("HOST", "0.0.0.0")
+
+# CORS Configuration
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
 # Retrieval Configuration
 TOP_K = 5
