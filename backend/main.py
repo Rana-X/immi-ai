@@ -4,6 +4,9 @@ import logging
 import sys
 import os
 from dotenv import load_dotenv
+from src.rag.retriever import VectorRetriever
+from src.rag.generator import AnswerGenerator
+from pydantic import BaseModel
 
 # Configure logging first, before any other imports
 logging.basicConfig(
@@ -13,12 +16,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Log startup information
-logger.info("Starting application...")
-logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"Directory contents: {os.listdir('.')}")
-logger.info(f"Python version: {sys.version}")
-logger.info(f"Environment variables: PORT={os.getenv('PORT')}")
+class ChatRequest(BaseModel):
+    question: str
+    context: dict = {}
+    is_first_message: bool = False
 
 try:
     # Load environment variables
@@ -43,40 +44,41 @@ try:
     )
     logger.info("Added CORS middleware")
 
-    # Health check endpoint - make it super simple
+    # Initialize components
+    retriever = VectorRetriever()
+    generator = AnswerGenerator()
+    logger.info("Initialized RAG components")
+
+    # Health check endpoint
     @app.get("/healthz")
     async def health_check():
         """Health check endpoint for Railway"""
         logger.info("Health check called")
         return {"status": "ok"}
 
-    @app.on_event("startup")
-    async def startup():
-        """Initialize application"""
+    # Chat endpoint
+    @app.post("/chat")
+    async def chat(request: ChatRequest):
+        """Chat endpoint for immigration queries"""
         try:
-            # Import components here to catch any import errors
-            from src.rag.retriever import VectorRetriever
-            from src.rag.generator import AnswerGenerator
-            from src.utils.question_clarifier import QuestionClarifier
+            logger.info(f"Received question: {request.question}")
             
-            logger.info("Imported all required modules")
+            # Get relevant documents
+            relevant_docs = retriever.get_relevant_documents(request.question)
+            logger.info(f"Found {len(relevant_docs)} relevant documents")
             
-            global retriever, generator, clarifier
-            retriever = VectorRetriever()
-            generator = AnswerGenerator()
-            clarifier = QuestionClarifier()
+            # Generate answer
+            response = generator.generate_answer(request.question, relevant_docs)
+            logger.info("Generated response")
             
-            logger.info("Initialized all components")
-            logger.info("Application startup complete")
+            return response
             
         except Exception as e:
-            logger.error(f"Error during startup: {str(e)}", exc_info=True)
+            logger.error(f"Error processing chat request: {str(e)}")
             raise
 
-    # Rest of your existing routes...
-
 except Exception as e:
-    logger.error(f"Error during application initialization: {str(e)}", exc_info=True)
+    logger.error(f"Error during application initialization: {str(e)}")
     raise
 
 if __name__ == "__main__":
