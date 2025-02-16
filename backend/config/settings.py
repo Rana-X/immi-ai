@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -9,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Debug: Print current working directory and contents
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"Directory contents: {os.listdir(os.getcwd())}")
 
 # Load environment variables from .env file if it exists
 env_path = BASE_DIR / '.env'
@@ -18,15 +23,43 @@ if env_path.exists():
 else:
     logger.info("No .env file found, using environment variables directly")
 
+# Debug: Print all environment variables (excluding sensitive values)
+env_vars = {k: '***' if 'KEY' in k else v for k, v in os.environ.items()}
+logger.info(f"Environment variables: {json.dumps(env_vars, indent=2)}")
+
+# Try to load from railway.json if environment variables are not set
+railway_json_path = BASE_DIR / 'railway.json'
+if railway_json_path.exists():
+    logger.info("Found railway.json, attempting to load variables")
+    try:
+        with open(railway_json_path) as f:
+            railway_config = json.load(f)
+            for key, value in railway_config.get('variables', {}).items():
+                if not os.getenv(key):
+                    os.environ[key] = value
+                    logger.info(f"Loaded {key} from railway.json")
+    except Exception as e:
+        logger.error(f"Error loading railway.json: {str(e)}")
+
 # Log environment variable status
 logger.info(f"PINECONE_API_KEY present: {bool(os.getenv('PINECONE_API_KEY'))}")
 logger.info(f"PINECONE_ENVIRONMENT: {os.getenv('PINECONE_ENVIRONMENT', 'not set')}")
 logger.info(f"PINECONE_INDEX_NAME: {os.getenv('PINECONE_INDEX_NAME', 'not set')}")
+logger.info(f"PINECONE_HOST: {os.getenv('PINECONE_HOST', 'not set')}")
 
-# Pinecone Configuration
+# Pinecone Configuration with better error messages
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 if not PINECONE_API_KEY:
-    raise ValueError("PINECONE_API_KEY not found in environment variables")
+    error_msg = """
+    PINECONE_API_KEY not found in environment variables.
+    Please ensure you have:
+    1. Set the variable in Railway dashboard
+    2. Or have a valid railway.json file
+    3. Or have a valid .env file
+    Current environment: {}
+    """.format(os.environ.get('RAILWAY_ENVIRONMENT', 'unknown'))
+    logger.error(error_msg)
+    raise ValueError(error_msg)
 
 PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "visaindex")

@@ -13,4 +13,9 @@ scikit-learn>=1.0.2
 numpy>=1.21.0
 fuzzywuzzy
 python-Levenshtein
-python-multipart 
+python-multipart
+
+# Testing Dependencies
+pytest==7.4.4
+pytest-cov==4.1.0
+requests==2.31.0 
