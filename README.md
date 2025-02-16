@@ -50,7 +50,7 @@ immi-ai/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/immi-ai.git
+   git clone https://github.com/Rana-X/immi-ai.git
    cd immi-ai/immi-ai-app
    ```
 
