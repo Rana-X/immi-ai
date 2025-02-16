@@ -11,57 +11,47 @@ pinned: false
 
 # Immi.AI - Immigration Assistant
 
-An intelligent assistant designed to help answer questions about US immigration and visa processes. Using advanced RAG (Retrieval-Augmented Generation) technology, it provides accurate, up-to-date information about various visa types, immigration procedures, and requirements.
+An intelligent assistant designed to help answer questions about US immigration and visa processes, powered by AI and RAG (Retrieval-Augmented Generation) technology.
 
 ## Project Structure
 
 ```
-project-root/
-├── backend/          # FastAPI backend
-│   ├── src/         # Source code
-│   ├── main.py      # Main FastAPI application
-│   └── requirements.txt
-└── frontend/        # Next.js frontend
-    ├── src/         # Source code
-    └── package.json
+immi-ai/
+├── immi-ai-app/        # Main Next.js application
+│   ├── src/           # Source code
+│   │   ├── app/       # Next.js app directory
+│   │   │   ├── api/   # API routes
+│   │   │   └── page.tsx  # Main chat interface
+│   │   └── components/  # React components
+│   └── public/        # Static files
+├── data/              # Immigration documents
+│   └── documents/     # Source documents for RAG
+└── scripts/           # Utility scripts
+    └── rebuild_indexes.py  # Rebuild Pinecone indexes
 ```
 
-## Setup Instructions
+## Tech Stack
 
-### Backend Setup
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes (Edge Runtime)
+- **AI/ML**: OpenAI API (GPT-4, Embeddings)
+- **Vector Store**: Pinecone
+- **Deployment**: Vercel
 
-1. Navigate to backend directory:
+## Features
+
+- 🤖 AI-powered immigration assistance
+- 💬 Real-time chat interface
+- 📚 Comprehensive visa information
+- ⚡ Fast, serverless architecture
+- 🎯 Accurate, context-aware responses
+
+## Getting Started
+
+1. Clone the repository:
    ```bash
-   cd backend
-   ```
-
-2. Create and activate virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-5. Run the backend:
-   ```bash
-   uvicorn main:app --reload
-   ```
-
-### Frontend Setup
-
-1. Navigate to frontend directory:
-   ```bash
-   cd frontend
+   git clone https://github.com/yourusername/immi-ai.git
+   cd immi-ai/immi-ai-app
    ```
 
 2. Install dependencies:
@@ -72,13 +62,37 @@ project-root/
 3. Set up environment variables:
    ```bash
    cp .env.example .env.local
-   # Edit .env.local with your settings
+   # Add your API keys to .env.local
    ```
 
 4. Run the development server:
    ```bash
    npm run dev
    ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Environment Variables
+
+Required environment variables:
+- `OPENAI_API_KEY` - Your OpenAI API key
+- `PINECONE_API_KEY` - Your Pinecone API key
+- `PINECONE_ENVIRONMENT` - Pinecone environment
+- `PINECONE_INDEX_NAME` - Name of your Pinecone index
+
+## Deployment
+
+The application is deployed on Vercel:
+
+1. Push to GitHub
+2. Connect to Vercel
+3. Set environment variables
+4. Deploy!
+
+## Scripts
+
+- `rebuild_indexes.py`: Rebuilds the Pinecone vector indexes with the latest documents
+- `test_flow.py`: Tests the complete chat flow
 
 ## Important Note
 
